@@ -21,21 +21,6 @@ def create_ising_lattice(L):
 
 '''--------------------------------------------------------------------------'''
 
-def get_histogram_edges(E_min,E_max,num_bins):
-
-    edges=np.histogram_bin_edges(np.ones(num_bins),bins=num_bins,
-    range=(E_min,E_max))
-
-    return edges
-
-'''--------------------------------------------------------------------------'''
-
-def get_bin_size(edges):
-
-    return edges[1]-edges[0]
-
-'''--------------------------------------------------------------------------'''
-
 def get_index(energy,E_min,bin_size):
 
     return np.int(np.floor((energy-E_min)/bin_size))
@@ -45,7 +30,6 @@ def get_index(energy,E_min,bin_size):
 def update_histogram_dos(histogram,dos,visited,E_index,mod_factor,num_bins):
 
     index = E_index
-    # print(E_index,visited)
     if visited[index]==0:
         if index==0:
             refIdx = 1
@@ -71,7 +55,7 @@ def update_histogram_dos(histogram,dos,visited,E_index,mod_factor,num_bins):
 '''--------------------------------------------------------------------------'''
 
 def spin_flip(ising_lattice,L,x_indices,y_indices,dos,mod_factor,histogram,
-num_bins,E_min,bin_size,edges,visited):
+num_bins,E_min,bin_size,visited):
 
     "Chooses a spin randomly and proposes to flip it"
 
@@ -128,9 +112,6 @@ num_bins,E_min,bin_size,edges,visited):
     # print(histogram)
     # print(E_1_index,E_2_index,histogram[E_1_index],histogram[E_2_index])
     # print("")
-    # NOTE: With dictionary method, E_i_index will be key's instead, as strings
-    # print(histogram,dos,E_1,E_2,E_1_index,E_2_index,"num_bins:",
-    #num_bins,visited,edges,bin_size)
     if r < np.exp(dos[E_1_index]-dos[E_2_index]):
 
         # Flip spin
@@ -144,7 +125,7 @@ num_bins,E_min,bin_size,edges,visited):
     else:
 
         # Update density of states and histogram
-        update_histogram_dos(histogram,dos,visited,E_2_index,mod_factor,
+        update_histogram_dos(histogram,dos,visited,E_1_index,mod_factor,
         num_bins) 
 
 
@@ -178,6 +159,7 @@ def is_histogram_flat_old(histogram,flatness_criterion):
     mean = np.mean(histogram)
     deviations = np.abs(histogram - mean)/mean
 
+    # print("deviations:",deviations,deviations[-2])
     return (deviations < 1-flatness_criterion).all()
 
 '''--------------------------------------------------------------------------'''
@@ -214,7 +196,10 @@ def is_histogram_flat(histogram,flatness_criterion,visited,num_bins):
             if histogram[i] < flatness_reference:
                 num_bins_failing_criterion += 1
 
-    return num_bins_failing_criterion==0
+    if num_bins_failing_criterion==0:
+        return True
+    else:
+        return False
 
 '''--------------------------------------------------------------------------'''
 
@@ -240,24 +225,17 @@ def main():
     ising_lattice = create_ising_lattice(L)
 
     # Initialize histogram
-    num_bins = 5
-    bin_size = (E_max-E_min)/num_bins
-    edges = get_histogram_edges(E_min-bin_size/2,E_max+bin_size/2,num_bins)
-    bin_size = get_bin_size(edges) # Actual bin_size after recentering
+    bins=np.arange(E_min,E_max+1,1)   
+    num_bins = bins.shape[0]
+
     histogram = np.zeros(num_bins) 
     dos = np.zeros(num_bins) # Actually log(G(E))
     visited = np.zeros(num_bins)
-    # print(edges,bin_size)
 
     # Should update histogram,dos for first energy visited
     E_1 = ising_energy(ising_lattice,L)
     E_1_index = get_index(E_1,E_min,bin_size)
     update_histogram_dos(histogram,dos,visited,E_1_index,mod_factor,num_bins)
-
-    # Get bin centers for plotting
-    bin_centers = np.zeros(edges.size-1)
-    for i in range(edges.size-1):
-        bin_centers[i] = (edges[i+1]+edges[i])/2
 
     # Initialize arrays that store x,y indices of spin (basically a meshgrid) 
     flattened_spin_indices = np.arange(L**2)
@@ -266,39 +244,95 @@ def main():
     while (mod_factor > mod_factor_final):
 
         histogram_flat = False
-
-        # if (m%(total_sites*skip)==0 and m>10000):
+        
         while(not(histogram_flat)):
-            print(histogram)
+
             for mc_steps in range(histogram_check_interval):
 
+                # Plot log(G(E)) iteratively
+                if mc_steps%2500==0:
+
+                    fig, ax = plt.subplots(2,1,sharex=True)
+                    fig.subplots_adjust(hspace=0.05)
+
+                    ax[0].bar(bins,histogram)
+                    ax[0].set_ylabel(r'$H(E)$')
+                    ax[0].set_xlabel(r'')
+                    ax[0].tick_params(direction='in',which='both')
+                    ax[0].set_ylim(0,2600)
+
+                    ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
+                    ax[1].set_ylabel(r'$\log(g(E))$')
+                    ax[1].set_xlabel(r'$E$',labelpad=-5)
+                    ax[1].set_xticks([bins[0],bins[-1]])
+                    ax[1].tick_params(direction='in',which='both')
+                    # ax[0].set_ylim(0,1000)
+
+                    plt.show(block=False)
+                    plt.pause(0.05)
+                    plt.close()
+
                 spin_flip(ising_lattice,L,x_indices,y_indices,dos,mod_factor,
-                histogram,num_bins,E_min,bin_size,edges,visited)
+                histogram,num_bins,E_min,bin_size,visited)
 
-            is_histogram_flat(histogram,flatness_criterion,visited,num_bins)
+            histogram_flat = is_histogram_flat(histogram,flatness_criterion,
+            visited,num_bins)
+            # histogram_flat = is_histogram_flat_old(histogram,flatness_criterion)
 
-        # # Plot log(G(E)) iteratively
-        # plt.plot(bin_centers,dos)
-        # plt.ylabel(r'$\log(g(E))$')
-        # plt.xlabel(r'$E$')
-        # plt.xlim(E_min,E_max)
-        # plt.show(block=False)
-        # plt.pause(0.05)
-        # plt.close()
-
-        print("modification factor: ",mod_factor)
-        print("edges: ",edges)
-        print("histogram (when it reaches flatness): ",histogram)
-        print("log(g(E)): ",dos,"\n")
+        # print("bins: ",bins)
+        # print("histogram (when it reaches flatness): ",histogram)
+        # print("log(g(E)): ",dos,"\n")
 
         # Write dos to disk
 
-        # Reset histogram
-        histogram[:] = 0.0
+        # Plot log(G(E)) when H(E) becomes flat
+        fig, ax = plt.subplots(2,1,sharex=True)
+        fig.subplots_adjust(hspace=0.05)
+
+        ax[0].bar(bins,histogram)
+        ax[0].set_ylabel(r'$H(E)$')
+        ax[0].set_xlabel(r'')
+        ax[0].tick_params(direction='in',which='both')
+        ax[0].set_ylim(0,2600)
+
+        ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
+        ax[1].set_ylabel(r'$\log(g(E))$')
+        ax[1].set_xlabel(r'$E$',labelpad=-5)
+        ax[1].set_xticks([bins[0],bins[-1]])
+        ax[1].tick_params(direction='in',which='both')
+
+        plt.show(block=False)
+        plt.pause(0.25)
+        plt.close()
+
+        print("modification factor: ",mod_factor)
+
+        # plt.savefig('histogram_and_dos.pdf',dpi=300)
 
         # Reduce modification factor
         mod_factor /= mod_factor_reducer
 
+        # if mod_factor <= mod_factor_final:
+        #     # Plot final log(G(E)) 
+        #     fig, ax = plt.subplots(2,1,sharex=True)
+        #     fig.subplots_adjust(hspace=0.05)
+        #     ax[0].bar(bins,histogram)
+        #     ax[0].set_ylabel(r'$H(E)$')
+        #     ax[0].set_xlabel(r'',labelpad=-5)
+        #     ax[0].tick_params(direction='in',which='both')
+        #     ax[0].set_ylim(0,2600)
+
+        #     ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
+        #     ax[1].set_ylabel(r'$\log(g(E))$')
+        #     ax[1].set_xlabel(r'$E$')
+        #     ax[1].set_xticks([E_min,E_max])
+        #     ax[1].tick_params(direction='in',which='both')
+        #     # ax[1].set_ylim(0)
+
+        #     plt.savefig('histogram_and_dos.pdf',dpi=300)
+
+        # Reset histogram
+        histogram[:] = 0.0
 
 if __name__ == "__main__":
     main()
