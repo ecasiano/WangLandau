@@ -217,7 +217,7 @@ def main():
     histogram_refresh_interval = 1000000
     bin_size = 1
 
-    L = 4
+    L = 16
     total_sites = L**dim
     E_min = -2*total_sites
     E_max = +2*total_sites
@@ -249,28 +249,28 @@ def main():
 
             for mc_steps in range(histogram_check_interval):
 
-                # Plot log(G(E)) iteratively
-                if mc_steps%2500==0:
+                # # Plot log(G(E)) iteratively
+                # if mc_steps%2500==0:
 
-                    fig, ax = plt.subplots(2,1,sharex=True)
-                    fig.subplots_adjust(hspace=0.05)
+                #     fig, ax = plt.subplots(2,1,sharex=True)
+                #     fig.subplots_adjust(hspace=0.05)
 
-                    ax[0].bar(bins,histogram)
-                    ax[0].set_ylabel(r'$H(E)$')
-                    ax[0].set_xlabel(r'')
-                    ax[0].tick_params(direction='in',which='both')
-                    ax[0].set_ylim(0,2600)
+                #     ax[0].bar(bins,histogram)
+                #     ax[0].set_ylabel(r'$H(E)$')
+                #     ax[0].set_xlabel(r'')
+                #     ax[0].tick_params(direction='in',which='both')
+                #     ax[0].set_ylim(0,2600)
 
-                    ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
-                    ax[1].set_ylabel(r'$\log(g(E))$')
-                    ax[1].set_xlabel(r'$E$',labelpad=-5)
-                    ax[1].set_xticks([bins[0],bins[-1]])
-                    ax[1].tick_params(direction='in',which='both')
-                    # ax[0].set_ylim(0,1000)
+                #     ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
+                #     ax[1].set_ylabel(r'$\ln(g(E))$')
+                #     ax[1].set_xlabel(r'$E$',labelpad=-5)
+                #     ax[1].set_xticks([bins[0],bins[-1]])
+                #     ax[1].tick_params(direction='in',which='both')
+                #     # ax[0].set_ylim(0,1000)
 
-                    plt.show(block=False)
-                    plt.pause(0.05)
-                    plt.close()
+                #     plt.show(block=False)
+                #     plt.pause(0.05)
+                #     plt.close()
 
                 spin_flip(ising_lattice,L,x_indices,y_indices,dos,mod_factor,
                 histogram,num_bins,E_min,bin_size,visited)
@@ -293,13 +293,17 @@ def main():
         ax[0].set_ylabel(r'$H(E)$')
         ax[0].set_xlabel(r'')
         ax[0].tick_params(direction='in',which='both')
-        ax[0].set_ylim(0,2600)
+        ax[0].set_ylim(0,20000)
 
-        ax[1].plot(bins[dos!=0],dos[dos!=0],'-')
-        ax[1].set_ylabel(r'$\log(g(E))$')
+        mindos = np.min(dos[dos!=0])
+        ax[1].plot(bins[dos!=0],dos[dos!=0]-mindos+np.log(2),'-')
+        ax[1].set_ylabel(r'$\ln(g(E))$')
         ax[1].set_xlabel(r'$E$',labelpad=-5)
         ax[1].set_xticks([bins[0],bins[-1]])
         ax[1].tick_params(direction='in',which='both')
+        ax[1].set_ylim(0,200)
+
+        plt.savefig('histogram_and_dos.pdf',dpi=300)
 
         plt.show(block=False)
         plt.pause(0.25)
@@ -307,7 +311,6 @@ def main():
 
         print("modification factor: ",mod_factor)
 
-        # plt.savefig('histogram_and_dos.pdf',dpi=300)
 
         # Reduce modification factor
         mod_factor /= mod_factor_reducer
